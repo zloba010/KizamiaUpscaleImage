@@ -1,0 +1,1879 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kizamia Upscale Image — улучшение изображений офлайн</title>
+<style>
+  :root{
+    --bg:#0d1117; --bg2:#151b26; --card:#1a2230; --card2:#202a3a;
+    --border:#2b3648; --text:#e8edf5; --muted:#8b98ad;
+    --accent:#4f8cff; --accent2:#7c5cff; --ok:#3ecf8e; --warn:#ffb454; --err:#ff6b6b;
+    --radius:14px; --shadow:0 8px 32px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 20% -10%, #1b2b4d 0%, transparent 60%),
+               radial-gradient(1000px 500px at 90% 110%, #2a1b4d 0%, transparent 55%),
+               var(--bg);
+    color:var(--text); min-height:100vh; display:flex; flex-direction:column;
+  }
+  header{
+    display:flex; align-items:center; gap:12px; padding:16px 28px;
+    border-bottom:1px solid var(--border); background:rgba(13,17,23,.7);
+    backdrop-filter:blur(10px); position:sticky; top:0; z-index:50;
+  }
+  .logo{display:flex; align-items:center; gap:10px; font-weight:700; font-size:18px; letter-spacing:.2px}
+  .logo .mark{
+    width:34px;height:34px;border-radius:10px; display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    box-shadow:0 4px 18px rgba(79,140,255,.4);
+    flex:none;
+  }
+  .logo .mark svg{width:20px;height:20px}
+  .badge-offline{
+    margin-left:auto; font-size:12px; color:var(--muted); border:1px solid var(--border);
+    padding:5px 10px; border-radius:999px; display:flex; align-items:center; gap:6px;
+    white-space:nowrap;
+  }
+  .badge-offline .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);flex:none}
+  main{flex:1; width:100%; max-width:1280px; margin:0 auto; padding:24px 20px 48px}
+
+  #dropzone{
+    margin-top:6vh;
+    border:2px dashed var(--border); border-radius:24px; background:var(--card);
+    padding:64px 32px; text-align:center; cursor:pointer;
+    transition:border-color .2s, background .2s, transform .15s;
+  }
+  #dropzone:hover{border-color:var(--accent); background:var(--card2)}
+  #dropzone.drag{border-color:var(--accent2); background:var(--card2); transform:scale(1.01)}
+  #dropzone .icon{
+    width:76px;height:76px;margin:0 auto 20px;border-radius:22px;
+    background:linear-gradient(135deg,rgba(79,140,255,.18),rgba(124,92,255,.18));
+    border:1px solid var(--border); display:grid; place-items:center;
+  }
+  #dropzone .icon svg{width:36px;height:36px;stroke:var(--accent)}
+  #dropzone h1{font-size:26px; margin-bottom:10px; font-weight:700}
+  #dropzone p{color:var(--muted); font-size:15px; line-height:1.55; max-width:560px; margin:0 auto}
+  #dropzone .hint{margin-top:18px; font-size:13px; color:var(--muted)}
+  #dropzone .formats{margin-top:14px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap}
+  .chip{
+    font-size:12px; padding:5px 12px; border-radius:999px;
+    border:1px solid var(--border); color:var(--muted); background:rgba(255,255,255,.03);
+  }
+  .zip-zone{
+    margin-top:14px; text-align:center; display:flex; align-items:center; gap:14px;
+    justify-content:center; flex-wrap:wrap;
+  }
+  .zip-zone .or{color:var(--muted); font-size:13px}
+  .zip-btn{
+    background:var(--card); border:1px solid var(--border); color:var(--text);
+    border-radius:12px; padding:12px 20px; font-size:14px; cursor:pointer; transition:.15s;
+    font-family:inherit; display:inline-flex; align-items:center; gap:9px;
+  }
+  .zip-btn:hover{border-color:var(--accent); color:#fff}
+  .zip-btn svg{width:18px;height:18px;stroke:var(--accent)}
+
+  #editor{display:grid; grid-template-columns:320px 1fr; gap:20px; align-items:start}
+  .panel{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:20px;
+    position:sticky; top:84px;
+  }
+  .panel h2{font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:600}
+  .group{display:flex; flex-direction:column; gap:12px}
+  .presets{display:grid; grid-template-columns:repeat(5,1fr); gap:6px}
+  .presets button, .zoombar button, .ghost-btn{
+    background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:9px; padding:8px 4px; font-size:13px; cursor:pointer; transition:.15s;
+    font-family:inherit;
+  }
+  .presets button:hover, .zoombar button:hover, .ghost-btn:hover{border-color:var(--accent); color:#fff}
+  .presets button.active{background:linear-gradient(135deg,var(--accent),var(--accent2)); border-color:transparent; color:#fff; font-weight:600}
+  .field{display:flex; flex-direction:column; gap:6px}
+  .field label{font-size:13px; color:var(--muted); display:flex; justify-content:space-between}
+  .field label .val{color:var(--text); font-weight:600; font-variant-numeric:tabular-nums}
+  input[type=number], select{
+    background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:9px; padding:10px 12px; font-size:15px; width:100%; font-family:inherit;
+    min-height:44px;
+  }
+  input[type=number]:focus, select:focus{outline:none; border-color:var(--accent)}
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:3px;
+    background:linear-gradient(90deg,var(--accent) var(--fill,30%),var(--border) var(--fill,30%));
+    cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:22px;height:22px;border-radius:50%;
+    background:#fff; border:3px solid var(--accent); box-shadow:0 2px 8px rgba(0,0,0,.4);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--accent);
+  }
+  .switch-row{display:flex; align-items:center; justify-content:space-between; font-size:14px}
+  .switch{position:relative; width:44px; height:26px; flex:none}
+  .switch input{opacity:0; width:0; height:0}
+  .switch .track{
+    position:absolute; inset:0; border-radius:999px; background:var(--border); transition:.2s; cursor:pointer;
+  }
+  .switch .track::after{
+    content:""; position:absolute; top:3px; left:3px; width:20px; height:20px;
+    border-radius:50%; background:#fff; transition:.2s;
+  }
+  .switch input:checked + .track{background:var(--accent)}
+  .switch input:checked + .track::after{transform:translateX(18px)}
+  .q-row{display:none}
+  .q-row.show{display:flex}
+  .primary{
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff; border:none; border-radius:11px; padding:14px 18px; font-size:15px;
+    font-weight:600; cursor:pointer; transition:.15s; font-family:inherit;
+    box-shadow:0 6px 20px rgba(79,140,255,.35); min-height:48px;
+  }
+  .primary:hover{filter:brightness(1.1)}
+  .primary:disabled{opacity:.5; cursor:default; filter:none}
+  .btn-row{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .btn-row .ghost-btn{font-size:15px; font-weight:600; min-height:48px}
+  .info-box{
+    background:var(--card2); border:1px solid var(--border); border-radius:10px;
+    padding:12px 14px; font-size:13px; color:var(--muted); line-height:1.6;
+  }
+  .info-box b{color:var(--text)}
+  .mode-badge{
+    display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600;
+    padding:3px 9px; border-radius:999px; margin-top:6px;
+  }
+  .mode-badge.single{background:rgba(62,207,142,.12); color:var(--ok); border:1px solid rgba(62,207,142,.3)}
+  .mode-badge.tiled{background:rgba(255,180,84,.12); color:var(--warn); border:1px solid rgba(255,180,84,.3)}
+
+  .stage-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column;
+  }
+  .toolbar{
+    display:flex; align-items:center; gap:8px; padding:10px 14px;
+    border-bottom:1px solid var(--border); flex-wrap:wrap;
+  }
+  .toolbar .hint-label{font-size:13px; color:var(--muted)}
+  .zoombar{display:flex; gap:6px; margin-left:auto}
+  .zoombar button.active{border-color:var(--accent); color:var(--accent)}
+  .cmp{
+    position:relative; height:min(62vh,640px); background:
+      repeating-conic-gradient(#1b2330 0% 25%, #151b26 0% 50%) 50%/22px 22px;
+    overflow:hidden; touch-action:none;
+    cursor:ew-resize; user-select:none; -webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .cmp.grab{cursor:grab}
+  .cmp.grabbing{cursor:grabbing}
+  .stage{position:absolute; left:50%; top:50%; transform-origin:center center}
+  .layer{position:absolute; inset:0; width:100%; height:100%; user-select:none; -webkit-user-drag:none}
+  .layer-after{clip-path:inset(0 0 0 var(--split,50%))}
+  #beforeLayer{image-rendering:auto}
+  .pixelated{image-rendering:pixelated}
+  .divider{
+    position:absolute; top:0; bottom:0; left:var(--split,50%); width:2px;
+    background:#fff; box-shadow:0 0 12px rgba(0,0,0,.6); z-index:5;
+    touch-action:none;
+  }
+  .divider .handle{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:40px;height:40px;border-radius:50%; background:#fff; display:grid; place-items:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.5); cursor:ew-resize; touch-action:none;
+  }
+  .divider .handle svg{width:18px;height:18px}
+  .tag{
+    position:absolute; top:12px; font-size:11px; font-weight:600; letter-spacing:.5px;
+    padding:4px 10px; border-radius:6px; background:rgba(0,0,0,.55); color:#fff;
+    backdrop-filter:blur(4px); z-index:4; pointer-events:none;
+  }
+  .tag.before{left:12px}
+  .tag.after{right:12px}
+  .statusbar{
+    padding:10px 14px; border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:10px; font-size:13px; color:var(--muted); flex-wrap:wrap;
+  }
+  .statusbar .sep{opacity:.4}
+  .overlay{
+    position:absolute; inset:0; z-index:20; display:none;
+    align-items:center; justify-content:center; flex-direction:column; gap:16px;
+    background:rgba(13,17,23,.78); backdrop-filter:blur(3px); padding:16px;
+  }
+  .overlay.show{display:flex}
+  .spinner{
+    width:44px;height:44px;border-radius:50%;
+    border:3px solid var(--border); border-top-color:var(--accent);
+    animation:spin .8s linear infinite; flex:none;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .overlay .ptext{font-size:14px; color:var(--text); text-align:center}
+  .pbar{width:min(320px,100%); height:6px; background:var(--border); border-radius:3px; overflow:hidden}
+  .pbar > div{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .15s; border-radius:3px}
+  .pct{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums}
+  .heavy-hint{
+    display:none; max-width:420px; text-align:center; font-size:12px; line-height:1.6;
+    color:var(--warn); background:rgba(255,180,84,.08); border:1px solid rgba(255,180,84,.3);
+    border-radius:10px; padding:10px 14px;
+  }
+  .heavy-hint.show{display:block}
+  .heavy-hint b{color:var(--warn)}
+
+  .veil{
+    position:fixed; inset:0; z-index:200; display:none;
+    align-items:center; justify-content:center;
+    background:rgba(5,8,13,.8); backdrop-filter:blur(4px); padding:20px;
+  }
+  .veil.show{display:flex}
+  #modal{z-index:400}
+  .modal-card{
+    background:var(--card); border:1px solid var(--border); border-radius:18px;
+    padding:28px; max-width:480px; width:100%; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:14px; text-align:center;
+    max-height:90vh; overflow:auto;
+  }
+  .modal-card h3{font-size:18px}
+  .modal-card p{font-size:14px; color:var(--muted); line-height:1.65; text-align:left}
+  .modal-card p b{color:var(--text)}
+  .modal-actions{display:flex; gap:10px; justify-content:center; margin-top:6px; flex-wrap:wrap}
+  .modal-actions .primary, .modal-actions .ghost-btn{padding:12px 22px; font-size:14px; min-height:48px}
+  .asm-card{
+    background:var(--card); border:1px solid var(--border); border-radius:18px;
+    padding:28px; max-width:480px; width:100%; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:16px; align-items:center;
+    max-height:90vh; overflow:auto;
+  }
+  .asm-card .ptext{font-size:14px; color:var(--text); text-align:center}
+  .asm-card .pbar{width:100%}
+  .asm-meta{
+    display:flex; gap:14px; font-size:12px; color:var(--muted);
+    font-variant-numeric:tabular-nums; flex-wrap:wrap; justify-content:center;
+  }
+
+  #toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--card2); border:1px solid var(--border); color:var(--text);
+    padding:12px 20px; border-radius:12px; font-size:14px; box-shadow:var(--shadow);
+    opacity:0; pointer-events:none; transition:.25s; z-index:500; max-width:90vw;
+    text-align:center;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  #toast.err{border-color:var(--err)}
+  #toast.warn{border-color:var(--warn)}
+  footer{
+    text-align:center; padding:18px; font-size:12px; color:var(--muted);
+    border-top:1px solid var(--border); line-height:1.8;
+  }
+  footer a{color:var(--accent); text-decoration:none; font-weight:600}
+  footer a:hover{text-decoration:underline}
+
+  @media(max-width:960px){
+    #editor{grid-template-columns:1fr}
+    .panel{position:static}
+  }
+  @media(max-width:640px){
+    header{padding:12px 14px; gap:8px}
+    .logo{font-size:15px; gap:8px}
+    .logo .mark{width:30px;height:30px}
+    .badge-offline{font-size:11px; padding:4px 8px}
+    main{padding:14px 12px 40px}
+    #dropzone{margin-top:3vh; padding:36px 16px; border-radius:18px}
+    #dropzone .icon{width:60px;height:60px;border-radius:18px}
+    #dropzone .icon svg{width:28px;height:28px}
+    #dropzone h1{font-size:20px}
+    #dropzone p{font-size:13px}
+    .zip-zone{gap:10px; margin-top:12px}
+    .zip-btn{padding:12px 16px; font-size:13px}
+    .panel{padding:16px; gap:16px}
+    .presets button{padding:12px 4px; font-size:14px}
+    .zoombar button{padding:10px 12px; font-size:13px}
+    .ghost-btn{font-size:14px}
+    .cmp{height:46vh}
+    .toolbar .hint-label{font-size:12px}
+    .divider .handle{width:46px;height:46px}
+    .divider .handle svg{width:20px;height:20px}
+    .tag{font-size:10px; padding:3px 8px}
+    .statusbar{font-size:12px; padding:10px 12px; gap:6px}
+    .modal-card{padding:20px}
+    .modal-card h3{font-size:16px}
+    .asm-card{padding:20px}
+    #toast{bottom:16px; font-size:13px; padding:10px 16px}
+    footer{font-size:11px; padding:14px}
+  }
+
+  /* ==== Правовая информация ==== */
+  #legal-info{
+    max-width:820px; margin:44px auto 10px; padding:26px 30px;
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    font-size:13.5px; line-height:1.7; color:var(--muted);
+  }
+  #legal-info p{margin:8px 0}
+  #legal-info b{color:var(--text); font-weight:600}
+  .legal-h{color:var(--text); font-size:16px; margin:22px 0 8px; font-weight:700}
+  .legal-h:first-of-type{margin-top:0}
+  .foot-links{margin-bottom:10px; display:flex; gap:6px; flex-wrap:wrap; justify-content:center}
+  .foot-links a{color:var(--muted); text-decoration:underline; text-underline-offset:2px}
+  .foot-links a:hover{color:var(--accent)}
+
+  /* ==== Окно поддержки ==== */
+  #kz-overlay{
+    position:fixed; inset:0; background:rgba(5,8,14,.7); backdrop-filter:blur(4px);
+    display:none; align-items:center; justify-content:center; z-index:99999; padding:16px;
+  }
+  #kz-dialog{
+    background:var(--bg2); border:1px solid var(--border); border-radius:18px;
+    max-width:440px; width:100%; padding:26px; box-sizing:border-box;
+    box-shadow:var(--shadow); position:relative;
+  }
+  #kz-x{
+    position:absolute; top:10px; right:14px; border:0; background:none;
+    font-size:22px; cursor:pointer; color:var(--muted); line-height:1; padding:4px;
+  }
+  #kz-dialog h3{color:var(--text); font-size:19px; margin:0 0 10px; font-weight:700}
+  #kz-dialog .kz-desc{margin:0 0 16px; font-size:13.5px; line-height:1.6; color:var(--muted)}
+  .kz-pay{
+    padding:13px 0; border:1px solid var(--border); background:var(--card2);
+    border-radius:10px; font-size:16px; font-weight:600; cursor:pointer; color:var(--text);
+    transition:border-color .15s, transform .1s;
+  }
+  .kz-pay:hover{border-color:var(--accent); transform:translateY(-1px)}
+  .kz-sec{
+    padding:11px; border:1px solid var(--border); background:var(--card2);
+    border-radius:10px; font-size:14px; cursor:pointer; color:var(--text);
+  }
+  #kz-amount{
+    width:130px; padding:10px; border:1px solid var(--border); border-radius:10px;
+    font-size:15px; background:var(--bg); color:var(--text);
+  }
+  #kz-later, #kz-back{
+    background:none; border:0; color:var(--muted); font-size:13px; cursor:pointer;
+    text-decoration:underline; text-underline-offset:2px; padding:0;
+  }
+  #kz-hide-row{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted);
+    margin-top:16px; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/>
+      </svg>
+    </span>
+    Kizamia Upscale Image
+  </div>
+  <div class="badge-offline"><span class="dot"></span>Работает без интернета</div>
+</header>
+
+<main>
+  <section id="dropzone">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    </div>
+    <h1>Перетащите изображение сюда</h1>
+    <p>Или нажмите, чтобы выбрать файл. Обработка выполняется полностью на вашем устройстве — изображение никуда не отправляется. Лимитов на итоговое разрешение нет.</p>
+    <div class="formats">
+      <span class="chip">PNG</span><span class="chip">JPG</span><span class="chip">WEBP</span>
+      <span class="chip">BMP</span><span class="chip">GIF</span><span class="chip">AVIF</span>
+    </div>
+    <div class="hint">Можно также вставить картинку из буфера обмена — Ctrl&nbsp;+&nbsp;V</div>
+  </section>
+
+  <div class="zip-zone">
+    <span class="or">или</span>
+    <button class="zip-btn" id="zipBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/>
+      </svg>
+      Собрать изображение из ZIP-архива
+    </button>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" hidden>
+  <input type="file" id="zipInput" accept=".zip,application/zip" hidden>
+
+  <section id="editor" hidden>
+    <aside class="panel">
+      <div class="group">
+        <h2>Масштаб</h2>
+        <div class="presets" id="presets">
+          <button data-s="2" class="active">×2</button>
+          <button data-s="3">×3</button>
+          <button data-s="4">×4</button>
+          <button data-s="6">×6</button>
+          <button data-s="8">×8</button>
+        </div>
+        <div class="field">
+          <label>Точный коэффициент <span class="val" id="scaleVal">×2</span></label>
+          <input type="number" id="scaleInput" inputmode="decimal" min="1.1" max="64" step="0.5" value="2">
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Улучшение</h2>
+        <div class="field">
+          <label>Резкость <span class="val" id="sharpenVal">35%</span></label>
+          <input type="range" id="sharpenInput" min="0" max="100" value="35">
+        </div>
+        <div class="switch-row">
+          <span>Авто-контраст и цвета</span>
+          <label class="switch"><input type="checkbox" id="colorsToggle"><span class="track"></span></label>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Сохранение</h2>
+        <div class="field">
+          <label>Формат</label>
+          <select id="formatSelect">
+            <option value="png" selected>PNG — без потерь</option>
+            <option value="jpeg">JPEG</option>
+          </select>
+        </div>
+        <div class="field q-row" id="qRow">
+          <label>Качество JPEG <span class="val" id="qVal">92%</span></label>
+          <input type="range" id="qInput" min="60" max="100" value="92">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="primary" id="downloadBtn" disabled>Скачать</button>
+        <button class="ghost-btn" id="newBtn">Другое фото</button>
+      </div>
+
+      <div class="info-box" id="infoBox">
+        Загрузите изображение, чтобы увидеть параметры.
+      </div>
+    </aside>
+
+    <div class="stage-card">
+      <div class="toolbar">
+        <span class="hint-label">До / после — потяните разделитель</span>
+        <div class="zoombar">
+          <button id="zFit" class="active">Вписать</button>
+          <button id="z100">100%</button>
+          <button id="z400">400%</button>
+        </div>
+      </div>
+      <div class="cmp" id="cmp">
+        <div class="stage" id="stage">
+          <img id="beforeLayer" class="layer" alt="До">
+          <div class="layer layer-after" id="afterWrap" style="position:absolute;inset:0;pointer-events:none"></div>
+          <div class="divider" id="divider">
+            <div class="handle">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="7 8 3 12 7 16"/>
+                <polyline points="17 8 21 12 17 16"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+              </svg>
+            </div>
+          </div>
+          <span class="tag before">ДО</span>
+          <span class="tag after">ПОСЛЕ</span>
+        </div>
+        <div class="overlay" id="overlay">
+          <div class="spinner"></div>
+          <div class="ptext" id="ptext">Обработка…</div>
+          <div class="pbar"><div id="pfill"></div></div>
+          <div class="pct" id="pct">0%</div>
+          <div class="heavy-hint" id="heavyHint">Работа может занять время — <b>не закрывайте вкладку</b>. Если вкладка «зависла» — подождите, пока сервис закончит работу.</div>
+        </div>
+      </div>
+      <div class="statusbar" id="statusbar"></div>
+    </div>
+  </section>
+</main>
+
+<div class="veil" id="modal">
+  <div class="modal-card">
+    <h3>Большой файл — предупреждаю</h3>
+    <p id="modalText"></p>
+    <div class="modal-actions">
+      <button class="ghost-btn" id="modalCancel">Отмена</button>
+      <button class="primary" id="modalOk">Согласен</button>
+    </div>
+  </div>
+</div>
+
+<div class="veil" id="asmOverlay">
+  <div class="asm-card">
+    <div class="spinner"></div>
+    <div class="ptext" id="asmText">Сборка…</div>
+    <div class="pbar"><div id="asmFill"></div></div>
+    <div class="pct" id="asmPct">0%</div>
+    <div class="asm-meta">
+      <span>Прошло: <span id="asmTime">0 с</span></span>
+      <span>Архив: <span id="asmSize">—</span></span>
+    </div>
+    <div class="heavy-hint" id="asmHeavy">Работа может занять время — <b>не закрывайте вкладку</b>. Если вкладка «зависла» — подождите, пока сервис закончит работу.</div>
+    <button class="ghost-btn" id="asmCancelBtn" type="button">Отмена</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ==== Правовая информация и реквизиты (требования платёжных систем) ==== -->
+<section id="legal-info">
+  <h3 id="support" class="legal-h">Поддержка проекта</h3>
+  <p>Kizamia Upscale Image — бесплатный сервис улучшения изображений. Все вычисления выполняются локально на устройстве пользователя; регистрации, подписки и лимитов нет.</p>
+  <p>Сервис развивается одним разработчиком. Вы можете поддержать его работу добровольным платежом: 100, 300 или 500 ₽ — либо любой другой суммой от 10 ₽ через окно поддержки. Оплата не является условием использования сервиса, не открывает дополнительных функций и не снимает ограничений — все возможности сервиса доступны бесплатно. После оплаты вы получите чек на указанный при оплате адрес электронной почты. Возврат платежа — по заявлению на электронную почту разработчика в течение 10 календарных дней.</p>
+
+  <h3 id="agreement" class="legal-h">Пользовательское соглашение (публичная оферта)</h3>
+  <p><b>1. Общие положения.</b> Настоящее соглашение является публичной офертой в соответствии со ст. 437 ГК РФ и регулирует использование онлайн-сервиса Kizamia Upscale Image, предоставляемого самозанятым ЗАПОЛНИТЬ_ФИО (далее — Разработчик), применяющим специальный налоговый режим «Налог на профессиональный доход», ИНН ЗАПОЛНИТЬ_ИНН.</p>
+  <p><b>2. Предмет.</b> Сервис позволяет пользователю обрабатывать собственные изображения (увеличение разрешения, улучшение резкости и цвета). Обработка выполняется локально в браузере пользователя; исходные и обработанные файлы не передаются на серверы Разработчика и не сохраняются.</p>
+  <p><b>3. Стоимость.</b> Использование сервиса бесплатно. Платежи носят добровольный характер и представляют собой оплату услуг Разработчика по созданию и поддержке сервиса. Размер платежа пользователь выбирает самостоятельно.</p>
+  <p><b>4. Ответственность и гарантии.</b> Сервис предоставляется «как есть». Разработчик не несёт ответственности за косвенные убытки пользователя; пользователь самостоятельно отвечает за сохранность своих файлов и за соблюдение прав третьих лиц на обрабатываемые изображения.</p>
+  <p><b>5. Персональные данные.</b> Сервис не собирает и не хранит персональные данные и изображения пользователей. При оплате данные пользователя обрабатываются платёжным сервисом Robokassa в соответствии с его политикой конфиденциальности.</p>
+  <p><b>6. Изменения.</b> Разработчик вправе изменять условия соглашения; актуальная редакция размещается на этой странице.</p>
+
+  <h3 id="contacts" class="legal-h">Контакты и реквизиты</h3>
+  <p>Разработчик: ЗАПОЛНИТЬ_ФИО<br>
+  ИНН: ЗАПОЛНИТЬ_ИНН<br>
+  Статус: самозанятый (НПД, закон 422-ФЗ)<br>
+  Электронная почта: ЗАПОЛНИТЬ_EMAIL<br>
+  Телефон: ЗАПОЛНИТЬ_ТЕЛЕФОН</p>
+</section>
+
+<footer>
+  <nav class="foot-links">
+    <a href="#support">Поддержка проекта</a> ·
+    <a href="#agreement">Пользовательское соглашение</a> ·
+    <a href="#contacts">Контакты и реквизиты</a>
+  </nav>
+  Все вычисления выполняются локально в вашем устройстве. Файлы не загружаются на серверы.<br>
+  Проект создан <a href="https://github.com/zloba010" target="_blank" rel="noopener">kizamia</a>
+</footer>
+
+<script>
+(function(){
+"use strict";
+
+var $ = function(s){ return document.querySelector(s); };
+
+var HEAVY = 1073741824;
+
+var state = {
+  srcCanvas: null,
+  outCanvas: null,
+  name: "",
+  origW: 0, origH: 0,
+  origBytes: 0,
+  busy: false,
+  split: 50,
+  zoom: 1, fitZoom: 1, tx: 0, ty: 0,
+  objUrl: null,
+  timer: null,
+  tiledMode: false,
+  tiles: null,
+  tileInfo: null,
+  fullW: 0, fullH: 0
+};
+
+var asmBusy = false;
+var asmCancel = false;
+
+var dropzone = $("#dropzone"), fileInput = $("#fileInput"), zipInput = $("#zipInput"), editor = $("#editor");
+var cmp = $("#cmp"), stage = $("#stage"), beforeLayer = $("#beforeLayer"),
+    afterWrap = $("#afterWrap"), divider = $("#divider");
+var overlay = $("#overlay"), ptext = $("#ptext"), pfill = $("#pfill"), pct = $("#pct");
+var heavyHint = $("#heavyHint");
+var statusbar = $("#statusbar"), infoBox = $("#infoBox");
+var scaleInput = $("#scaleInput"), sharpenInput = $("#sharpenInput"), colorsToggle = $("#colorsToggle");
+var formatSelect = $("#formatSelect"), qInput = $("#qInput"), qRow = $("#qRow");
+var downloadBtn = $("#downloadBtn");
+var modal = $("#modal"), modalText = $("#modalText"), modalOk = $("#modalOk"), modalCancel = $("#modalCancel");
+var asmOverlay = $("#asmOverlay"), asmText = $("#asmText"), asmFill = $("#asmFill"), asmPct = $("#asmPct");
+var asmHeavy = $("#asmHeavy"), asmTime = $("#asmTime"), asmSize = $("#asmSize");
+
+function frame(){ return new Promise(function(r){ requestAnimationFrame(function(){ setTimeout(r, 0); }); }); }
+
+function toast(msg, kind){
+  var t = $("#toast");
+  t.textContent = msg;
+  t.className = "show" + (kind ? " " + kind : "");
+  clearTimeout(toast._h);
+  toast._h = setTimeout(function(){ t.className = ""; }, 4000);
+}
+
+function setProgress(label, p){
+  ptext.textContent = label;
+  p = Math.max(0, Math.min(100, p));
+  pfill.style.width = p + "%";
+  pct.textContent = Math.round(p) + "%";
+}
+
+function setAsmProgress(label, p){
+  asmText.textContent = label;
+  p = Math.max(0, Math.min(100, p));
+  asmFill.style.width = p + "%";
+  asmPct.textContent = Math.round(p) + "%";
+}
+
+function fmtBytes(n){
+  if (n < 1024) return n + " Б";
+  if (n < 1048576) return (n / 1024).toFixed(1) + " КБ";
+  if (n < 1073741824) return (n / 1048576).toFixed(1) + " МБ";
+  return (n / 1073741824).toFixed(2) + " ГБ";
+}
+
+function fmtNum(n){ return n.toLocaleString("ru-RU"); }
+
+function fmtSec(sec){
+  sec = Math.floor(sec);
+  if (sec < 60) return sec + " с";
+  var m = Math.floor(sec / 60);
+  if (m < 60) return m + " мин " + (sec % 60) + " с";
+  return Math.floor(m / 60) + " ч " + (m % 60) + " мин";
+}
+
+function pad4(n){ n = String(n); while (n.length < 4) n = "0" + n; return n; }
+
+function estimatePngBytes(w, h){ return (w * 4 + 1) * h; }
+
+function askHeavyWarning(estimateBytes, actionLabel, upper){
+  return new Promise(function(resolve){
+    var sizePhrase = upper
+      ? "может весить до ≈<b>" + fmtBytes(estimateBytes) + "</b> (это верхняя оценка — реальный файл обычно в несколько раз меньше)"
+      : "будет весить примерно <b>" + fmtBytes(estimateBytes) + "</b> — больше 1&nbsp;ГБ";
+    modalText.innerHTML =
+      "Итоговый файл " + sizePhrase + "." +
+      "<br><br>Сервис продолжит работать. <b>Не закрывайте вкладку</b> во время обработки." +
+      "<br><br>Если вкладка «зависла» и не отвечает — не перезапускайте её: <b>подождите, пока сервис закончит работу</b>, скачивание начнётся автоматически." +
+      "<br><br>Действие: " + actionLabel + ". Отмена — работа не начнётся.";
+    modal.classList.add("show");
+    function done(v){
+      modal.classList.remove("show");
+      modalOk.onclick = null; modalCancel.onclick = null;
+      resolve(v);
+    }
+    modalOk.onclick = function(){ done(true); };
+    modalCancel.onclick = function(){ done(false); };
+  });
+}
+
+window.addEventListener("beforeunload", function(e){
+  if (state.busy || asmBusy) {
+    e.preventDefault();
+    e.returnValue = "";
+    return e;
+  }
+});
+
+function loadFile(file){
+  if (!file) return;
+  if (!/^image\//.test(file.type)) { toast("Это не изображение. Выберите PNG, JPG, WEBP и т. д.", "err"); return; }
+  if (state.objUrl) URL.revokeObjectURL(state.objUrl);
+
+  var url = URL.createObjectURL(file);
+  var img = new Image();
+  img.onload = function(){
+    try {
+      var sc = document.createElement("canvas");
+      sc.width = img.naturalWidth;
+      sc.height = img.naturalHeight;
+      var ctx = sc.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+
+      state.srcCanvas = sc;
+      state.outCanvas = null;
+      state.tiles = null;
+      state.tiledMode = false;
+      state.name = (file.name || "image").replace(/\.[^.]+$/, "");
+      state.origW = img.naturalWidth;
+      state.origH = img.naturalHeight;
+      state.origBytes = file.size;
+      state.objUrl = url;
+      beforeLayer.src = url;
+
+      dropzone.hidden = true;
+      editor.hidden = false;
+      process();
+    } catch (e) {
+      URL.revokeObjectURL(url);
+      toast("Не удалось декодировать изображение", "err");
+    }
+  };
+  img.onerror = function(){
+    URL.revokeObjectURL(url);
+    toast("Браузер не смог прочитать этот файл", "err");
+  };
+  img.src = url;
+}
+
+function makeCanvas(w, h){
+  var c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  if (c.width !== w || c.height !== h) throw new Error("outOfMemory");
+  return c;
+}
+
+var SAFE_SIDE = 16384;
+function fitsInCanvas(w, h){
+  return w <= SAFE_SIDE && h <= SAFE_SIDE && w * h <= SAFE_SIDE * SAFE_SIDE;
+}
+
+async function upscale(src, scale, colorsOn){
+  var cur = src, done = 1;
+  while (done < scale - 1e-9) {
+    var f = Math.min(2, scale / done);
+    var w = Math.max(1, Math.round(cur.width * f));
+    var h = Math.max(1, Math.round(cur.height * f));
+    if (!fitsInCanvas(w, h)) throw new Error("canvasLimit");
+    var c;
+    try { c = makeCanvas(w, h); } catch (e) { throw new Error("canvasLimit"); }
+    var ctx = c.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    var last = (done * f >= scale - 1e-9);
+    if (last && colorsOn) ctx.filter = "saturate(1.07) contrast(1.04)";
+    ctx.drawImage(cur, 0, 0, w, h);
+    cur = c;
+    done *= f;
+    setProgress("Увеличение разрешения…", (done / scale) * 60);
+    await frame();
+  }
+  return cur;
+}
+
+async function sharpen(canvas, amount, scale){
+  if (amount <= 0.01) return canvas;
+  var w = canvas.width, h = canvas.height;
+  var r = Math.min(3, Math.max(1, Math.round(scale / 2)));
+  var bc;
+  try { bc = makeCanvas(w, h); } catch (e) { return canvas; }
+  var bctx = bc.getContext("2d", { willReadFrequently: true });
+  bctx.filter = "blur(" + r + "px)";
+  bctx.drawImage(canvas, 0, 0);
+  bctx.filter = "none";
+
+  var sctx = canvas.getContext("2d", { willReadFrequently: true });
+  var src, blur;
+  try {
+    src = sctx.getImageData(0, 0, w, h);
+    blur = bctx.getImageData(0, 0, w, h);
+  } catch (e) { return canvas; }
+
+  var s = src.data, bl = blur.data;
+  var out = bctx.createImageData(w, h);
+  var o = out.data;
+  var rowsPerChunk = Math.max(1, Math.floor(150000 / w));
+  var total = h;
+
+  for (var y = 0; y < h; y += rowsPerChunk) {
+    var yEnd = Math.min(h, y + rowsPerChunk);
+    for (var yy = y; yy < yEnd; yy++) {
+      var idx = yy * w * 4;
+      for (var x = 0; x < w; x++, idx += 4) {
+        var v;
+        v = s[idx]     + amount * (s[idx]     - bl[idx]);     o[idx]     = v < 0 ? 0 : v > 255 ? 255 : v;
+        v = s[idx + 1] + amount * (s[idx + 1] - bl[idx + 1]); o[idx + 1] = v < 0 ? 0 : v > 255 ? 255 : v;
+        v = s[idx + 2] + amount * (s[idx + 2] - bl[idx + 2]); o[idx + 2] = v < 0 ? 0 : v > 255 ? 255 : v;
+        o[idx + 3] = s[idx + 3];
+      }
+    }
+    setProgress("Повышение резкости…", 60 + ((yEnd / total) * 30));
+    await frame();
+  }
+  sctx.putImageData(out, 0, 0);
+  return canvas;
+}
+
+function canvasToBlob(canvas){
+  return new Promise(function(resolve){
+    canvas.toBlob(function(b){ resolve(b); }, "image/png");
+  });
+}
+
+async function tiledPipeline(scale, colorsOn, amt){
+  var srcW = state.origW, srcH = state.origH;
+  var outW = state.fullW, outH = state.fullH;
+
+  var m = 24;
+  var tileW = Math.max(64, Math.min(1024, Math.floor(SAFE_SIDE / scale) - 2 * m));
+  var tileH = tileW;
+  var cols = Math.ceil(srcW / tileW);
+  var rows = Math.ceil(srcH / tileH);
+
+  var ovScale = Math.min(1, 4096 / Math.max(outW, outH));
+  while (outW * ovScale * outH * ovScale > 16e6) ovScale *= 0.8;
+  var ov = makeCanvas(Math.max(1, Math.round(outW * ovScale)), Math.max(1, Math.round(outH * ovScale)));
+  var ovx = ov.getContext("2d");
+  ovx.imageSmoothingEnabled = true;
+  ovx.imageSmoothingQuality = "high";
+
+  var tiles = [];
+  var total = cols * rows, done = 0;
+
+  for (var ty = 0; ty < rows; ty++) {
+    for (var tx = 0; tx < cols; tx++) {
+      var X = tx * tileW, Y = ty * tileH;
+      var tw = Math.min(tileW, srcW - X), th = Math.min(tileH, srcH - Y);
+      var ex0 = Math.max(0, X - m), ey0 = Math.max(0, Y - m);
+      var ex1 = Math.min(srcW, X + tw + m), ey1 = Math.min(srcH, Y + th + m);
+      var ew = ex1 - ex0, eh = ey1 - ey0;
+
+      var tmp = makeCanvas(ew, eh);
+      tmp.getContext("2d").drawImage(state.srcCanvas, ex0, ey0, ew, eh, 0, 0, ew, eh);
+
+      var ups = await upscale(tmp, scale, colorsOn);
+      ups = await sharpen(ups, amt, scale);
+
+      var cw = Math.round(tw * scale), ch = Math.round(th * scale);
+      var cx = Math.round((X - ex0) * scale), cy = Math.round((Y - ey0) * scale);
+
+      var tile = makeCanvas(cw, ch);
+      tile.getContext("2d").drawImage(ups, cx, cy, cw, ch, 0, 0, cw, ch);
+
+      var blob = await canvasToBlob(tile);
+      tiles.push({ x: X * scale, y: Y * scale, w: cw, h: ch, r: ty, c: tx, blob: blob });
+
+      ovx.drawImage(ups, cx, cy, cw, ch, X * scale * ovScale, Y * scale * ovScale, cw * ovScale, ch * ovScale);
+
+      tmp = null; ups = null; tile = null;
+      done++;
+      setProgress("Обработка фрагмента " + done + " из " + total + "…", (done / total) * 97);
+      await frame();
+    }
+  }
+
+  return {
+    overview: ov, tiles: tiles,
+    cols: cols, rows: rows, tileW: tileW, tileH: tileH, ovScale: ovScale
+  };
+}
+
+function scaleValue(){
+  var v = parseFloat(scaleInput.value);
+  if (!isFinite(v)) v = 2;
+  return Math.max(1.1, Math.min(64, v));
+}
+
+async function process(){
+  if (state.busy || !state.srcCanvas) return;
+  state.busy = true;
+  downloadBtn.disabled = true;
+  overlay.classList.add("show");
+  heavyHint.classList.remove("show");
+  setProgress("Подготовка…", 0);
+  try {
+    await frame();
+    var scale = scaleValue();
+    var outW = Math.round(state.origW * scale);
+    var outH = Math.round(state.origH * scale);
+    var amt = sharpenInput.value / 100 * 1.4;
+    state.fullW = outW;
+    state.fullH = outH;
+    state.tiles = null;
+
+    var est = estimatePngBytes(outW, outH);
+    if (est > HEAVY) {
+      var ok = await askHeavyWarning(est, "увеличение изображения", true);
+      if (!ok) return;
+      heavyHint.classList.add("show");
+    }
+
+    var c;
+    if (fitsInCanvas(outW, outH)) {
+      state.tiledMode = false;
+      c = await upscale(state.srcCanvas, scale, colorsToggle.checked);
+      c = await sharpen(c, amt, scale);
+      setProgress("Готово", 100);
+      await frame();
+    } else {
+      state.tiledMode = true;
+      toast("Итог больше холста браузера — включён блочный режим без лимитов.", "warn");
+      var res = await tiledPipeline(scale, colorsToggle.checked, amt);
+      c = res.overview;
+      state.tiles = res.tiles;
+      state.tileInfo = res;
+      setProgress("Готово", 100);
+      await frame();
+    }
+
+    if (state.outCanvas && state.outCanvas.parentNode) state.outCanvas.parentNode.removeChild(state.outCanvas);
+    state.outCanvas = c;
+    c.style.position = "absolute";
+    c.style.inset = "0";
+    c.style.width = "100%";
+    c.style.height = "100%";
+    c.style.objectFit = "fill";
+    afterWrap.innerHTML = "";
+    afterWrap.appendChild(c);
+
+    state.split = 50;
+    applySplit();
+    layoutPreview();
+    state.zoom = 1; state.tx = 0; state.ty = 0;
+    setZoomMode("fit");
+    updateInfo();
+    downloadBtn.disabled = false;
+  } catch (err) {
+    if (err.message === "canvasLimit") {
+      toast("Не хватило холста даже для фрагмента — уменьшите масштаб.", "err");
+    } else if (err.message === "outOfMemory") {
+      toast("Не хватает памяти для холста. Попробуйте меньший масштаб.", "err");
+    } else {
+      toast("Ошибка обработки: " + (err.message || "неизвестная"), "err");
+    }
+  } finally {
+    state.busy = false;
+    overlay.classList.remove("show");
+    heavyHint.classList.remove("show");
+  }
+}
+
+function updateInfo(){
+  if (!state.outCanvas) return;
+  var scale = scaleValue();
+  var ow = state.fullW, oh = state.fullH;
+  var html =
+    "<b>Было:</b> " + fmtNum(state.origW) + " × " + fmtNum(state.origH) + " px<br>" +
+    "<b>Станет:</b> " + fmtNum(ow) + " × " + fmtNum(oh) + " px (×" + (+scale.toFixed(2)) + ")<br>" +
+    "<b>Исходный файл:</b> " + fmtBytes(state.origBytes);
+
+  if (state.tiledMode && state.tiles) {
+    var sum = 0;
+    for (var i = 0; i < state.tiles.length; i++) sum += state.tiles[i].blob.size;
+    html += "<b>Итоговый PNG:</b> ≈ " + fmtBytes(sum) + " (сумма фрагментов)";
+    if (sum > HEAVY) {
+      html += "<br><b style='color:var(--warn)'>Файл больше 1 ГБ.</b> Не закрывайте вкладку во время сборки — если она «зависла», просто подождите.";
+    }
+    html +=
+      "<br><b>Режим:</b> блочный — " + fmtNum(state.tiles.length) + " фрагментов, швов нет" +
+      "<br><b>При сохранении:</b> ZIP-архив с фрагментами PNG" +
+      "<br><span class='mode-badge tiled'>Без ограничений размера</span>";
+  } else {
+    var est = estimatePngBytes(ow, oh);
+    html += "<b>Оценка PNG (верхняя):</b> ≈ " + fmtBytes(est) + " — реальный файл обычно в несколько раз меньше";
+    html += "<br><span class='mode-badge single'>Один файл без потерь</span>";
+  }
+  infoBox.innerHTML = html;
+
+  statusbar.innerHTML =
+    "<span>" + fmtNum(state.origW) + "×" + fmtNum(state.origH) + "</span>" +
+    "<span class='sep'>→</span>" +
+    "<span style='color:var(--ok);font-weight:600'>" + fmtNum(ow) + "×" + fmtNum(oh) + "</span>" +
+    "<span class='sep'>·</span>" +
+    "<span>×" + (+scale.toFixed(2)) + "</span>" +
+    "<span class='sep'>·</span>" +
+    "<span>" + fmtNum(((state.origW * state.origH) / 1e6).toFixed(1)) + " Мп → " + fmtNum(((ow * oh) / 1e6).toFixed(1)) + " Мп</span>" +
+    (state.tiledMode ? "<span class='sep'>·</span><span style='color:var(--warn)'>блочный режим, " + fmtNum(state.tiles.length) + " фрагм.</span>" : "");
+}
+
+function applySplit(){
+  stage.style.setProperty("--split", state.split + "%");
+  divider.style.left = state.split + "%";
+}
+
+function layoutPreview(){
+  if (!state.outCanvas) return;
+  var cw = cmp.clientWidth, ch = cmp.clientHeight;
+  if (!cw || !ch) {
+    requestAnimationFrame(layoutPreview);
+    return;
+  }
+  var fullW = state.fullW || state.outCanvas.width;
+  var fullH = state.fullH || state.outCanvas.height;
+  var ar = fullW / fullH;
+  var w = cw, h = cw / ar;
+  if (h > ch) { h = ch; w = ch * ar; }
+  stage.style.width = w + "px";
+  stage.style.height = h + "px";
+  state.fitZoom = fullW / w;
+  clampPan();
+  applyTransform();
+}
+
+function applyTransform(){
+  stage.style.transform = "translate(-50%,-50%) translate(" + state.tx + "px," + state.ty + "px) scale(" + state.zoom + ")";
+}
+
+function clampPan(){
+  if (state.zoom <= 1.001) { state.tx = 0; state.ty = 0; }
+  else {
+    var w = stage.offsetWidth, h = stage.offsetHeight;
+    var maxX = (w * state.zoom - w) / 2, maxY = (h * state.zoom - h) / 2;
+    state.tx = Math.max(-maxX, Math.min(maxX, state.tx));
+    state.ty = Math.max(-maxY, Math.min(maxY, state.ty));
+  }
+  updateCursors();
+}
+
+function updateCursors(){
+  if (state.zoom > 1.001) cmp.classList.add("grab");
+  else cmp.classList.remove("grab");
+}
+
+function setZoomMode(mode){
+  var b1 = $("#zFit"), b2 = $("#z100"), b3 = $("#z400");
+  b1.classList.remove("active"); b2.classList.remove("active"); b3.classList.remove("active");
+  var pixelated = false;
+  if (mode === "fit") { state.zoom = 1; b1.classList.add("active"); }
+  if (mode === "100") { state.zoom = Math.max(1, state.fitZoom); b2.classList.add("active"); pixelated = state.zoom > 2; }
+  if (mode === "400") { state.zoom = Math.max(1, state.fitZoom * 4); b3.classList.add("active"); pixelated = true; }
+  beforeLayer.classList.toggle("pixelated", pixelated);
+  clampPan();
+  applyTransform();
+}
+
+var dividerActive = false;
+var panning = false, lastX = 0, lastY = 0;
+var activePointers = new Map();
+var pinch = null;
+
+function moveSplit(clientX){
+  var rect = stage.getBoundingClientRect();
+  if (!rect.width) return;
+  var x = (clientX - rect.left) / rect.width * 100;
+  state.split = Math.max(0, Math.min(100, x));
+  applySplit();
+}
+
+cmp.addEventListener("pointerdown", function(e){
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (activePointers.size === 2) {
+    dividerActive = false;
+    panning = false;
+    cmp.classList.remove("grabbing");
+    var pts = Array.from(activePointers.values());
+    pinch = {
+      dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
+      zoom: state.zoom
+    };
+    e.preventDefault();
+    return;
+  }
+  if (activePointers.size > 2) { e.preventDefault(); return; }
+
+  var onDivider = e.target === divider ||
+                  e.target === divider.firstElementChild ||
+                  (e.target.closest && e.target.closest("#divider"));
+  if (onDivider) {
+    e.preventDefault();
+    dividerActive = true;
+    moveSplit(e.clientX);
+    return;
+  }
+  if (state.zoom > 1.001) {
+    panning = true;
+    lastX = e.clientX; lastY = e.clientY;
+    cmp.classList.add("grabbing");
+    e.preventDefault();
+    return;
+  }
+  e.preventDefault();
+  dividerActive = true;
+  moveSplit(e.clientX);
+});
+
+document.addEventListener("pointermove", function(e){
+  if (activePointers.has(e.pointerId)) {
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  }
+  if (pinch && activePointers.size >= 2) {
+    var pts = Array.from(activePointers.values());
+    var d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    if (pinch.dist > 0 && d > 0) {
+      state.zoom = Math.max(1, Math.min(16, pinch.zoom * d / pinch.dist));
+      clampPan();
+      applyTransform();
+    }
+    e.preventDefault();
+    return;
+  }
+  if (dividerActive) { moveSplit(e.clientX); return; }
+  if (panning) {
+    state.tx += e.clientX - lastX;
+    state.ty += e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    clampPan();
+    applyTransform();
+  }
+});
+
+function endPointer(e){
+  if (e && e.pointerId !== undefined) activePointers.delete(e.pointerId);
+  if (activePointers.size < 2) pinch = null;
+  dividerActive = false;
+  if (panning) {
+    panning = false;
+    cmp.classList.remove("grabbing");
+    updateCursors();
+  }
+}
+document.addEventListener("pointerup", endPointer);
+document.addEventListener("pointercancel", endPointer);
+
+cmp.addEventListener("wheel", function(e){
+  if (!state.outCanvas) return;
+  e.preventDefault();
+  var z = state.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12);
+  z = Math.max(1, Math.min(16, z));
+  if (z <= 1.001) { setZoomMode("fit"); return; }
+  state.zoom = z;
+  clampPan();
+  applyTransform();
+}, { passive: false });
+
+window.addEventListener("resize", layoutPreview);
+
+$("#presets").addEventListener("click", function(e){
+  var b = e.target.closest("button");
+  if (!b) return;
+  var btns = this.querySelectorAll("button");
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove("active");
+  b.classList.add("active");
+  scaleInput.value = b.dataset.s;
+  $("#scaleVal").textContent = "×" + b.dataset.s;
+  scheduleProcess();
+});
+
+scaleInput.addEventListener("input", function(){
+  var v = scaleValue();
+  $("#scaleVal").textContent = "×" + (+v.toFixed(2));
+  var btns = $("#presets").querySelectorAll("button");
+  var match = null;
+  for (var i = 0; i < btns.length; i++) if (parseFloat(btns[i].dataset.s) === v) match = btns[i];
+  for (var j = 0; j < btns.length; j++) btns[j].classList.remove("active");
+  if (match) match.classList.add("active");
+  scheduleProcess();
+});
+
+function bindRange(input, valEl, suffix, min, max){
+  function upd(){
+    valEl.textContent = input.value + suffix;
+    var p = (input.value - min) / (max - min) * 100;
+    input.style.setProperty("--fill", p + "%");
+  }
+  input.addEventListener("input", function(){ upd(); scheduleProcess(); });
+  upd();
+}
+bindRange(sharpenInput, $("#sharpenVal"), "%", 0, 100);
+bindRange(qInput, $("#qVal"), "%", 60, 100);
+
+colorsToggle.addEventListener("change", scheduleProcess);
+
+formatSelect.addEventListener("change", function(){
+  qRow.classList.toggle("show", formatSelect.value === "jpeg");
+});
+
+var zDebounce;
+function scheduleProcess(){
+  clearTimeout(zDebounce);
+  zDebounce = setTimeout(process, 350);
+}
+
+$("#zFit").addEventListener("click", function(){ setZoomMode("fit"); });
+$("#z100").addEventListener("click", function(){ setZoomMode("100"); });
+$("#z400").addEventListener("click", function(){ setZoomMode("400"); });
+
+var CRC_TABLE = null;
+function crcTable(){
+  if (CRC_TABLE) return CRC_TABLE;
+  CRC_TABLE = new Uint32Array(256);
+  for (var n = 0; n < 256; n++) {
+    var c = n;
+    for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    CRC_TABLE[n] = c >>> 0;
+  }
+  return CRC_TABLE;
+}
+function crc32(u8){
+  var t = crcTable(), c = 0xFFFFFFFF;
+  for (var i = 0; i < u8.length; i++) c = t[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function crc32Update(c, u8){
+  var t = crcTable();
+  for (var i = 0; i < u8.length; i++) c = t[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return c;
+}
+
+function makeLocalHeader(dv, nameBytes, crc, size){
+  dv.setUint32(0, 0x04034b50, true);
+  dv.setUint16(4, 20, true);
+  dv.setUint16(6, 0x0800, true);
+  dv.setUint16(8, 0, true);
+  dv.setUint16(10, 0, true);
+  dv.setUint16(12, 0x5C21, true);
+  dv.setUint32(14, crc, true);
+  dv.setUint32(18, size, true);
+  dv.setUint32(22, size, true);
+  dv.setUint16(26, nameBytes.length, true);
+  dv.setUint16(28, 0, true);
+}
+
+function makeCentralEntry(dv, nameBytes, crc, size, offset){
+  dv.setUint32(0, 0x02014b50, true);
+  dv.setUint16(4, 20, true);
+  dv.setUint16(6, 20, true);
+  dv.setUint16(8, 0x0800, true);
+  dv.setUint16(10, 0, true);
+  dv.setUint16(12, 0, true);
+  dv.setUint16(14, 0x5C21, true);
+  dv.setUint32(16, crc, true);
+  dv.setUint32(20, size, true);
+  dv.setUint32(24, size, true);
+  dv.setUint16(28, nameBytes.length, true);
+  dv.setUint16(30, 0, true);
+  dv.setUint16(32, 0, true);
+  dv.setUint16(34, 0, true);
+  dv.setUint16(36, 0, true);
+  dv.setUint32(38, 0, true);
+  dv.setUint32(42, offset, true);
+}
+
+async function buildZipArchive(){
+  var enc = new TextEncoder();
+  var parts = [];
+  var entries = [];
+  var offset = 0;
+  var tiles = state.tiles;
+  var total = tiles.length;
+  var base = state.name || "image";
+
+  for (var i = 0; i < total; i++) {
+    var t = tiles[i];
+    var name = base + "_tile_r" + pad4(t.r) + "_c" + pad4(t.c) + ".png";
+    var nameBytes = enc.encode(name);
+    var u8 = new Uint8Array(await t.blob.arrayBuffer());
+    var crc = crc32(u8);
+
+    var lh = new Uint8Array(30 + nameBytes.length);
+    var dv = new DataView(lh.buffer);
+    makeLocalHeader(dv, nameBytes, crc, u8.length);
+    lh.set(nameBytes, 30);
+    parts.push(lh); parts.push(u8);
+    entries.push({ nameBytes: nameBytes, crc: crc, size: u8.length, offset: offset });
+    offset += lh.length + u8.length;
+
+    if (i % 8 === 0) {
+      setProgress("Сборка ZIP… фрагмент " + (i + 1) + " из " + total, (i / total) * 85);
+      await frame();
+    }
+  }
+
+  var man = "Apsscale Studio export\r\n" +
+            "source: " + state.origW + "x" + state.origH + "\r\n" +
+            "scale: x" + (+scaleValue().toFixed(2)) + "\r\n" +
+            "result: " + state.fullW + "x" + state.fullH + "\r\n" +
+            "tiles: " + total + "\r\n" +
+            "order: tile_r{row}_c{col}; x,y,w,h in pixels:\r\n\r\n";
+  for (var k = 0; k < total; k++) {
+    var tt = tiles[k];
+    man += base + "_tile_r" + pad4(tt.r) + "_c" + pad4(tt.c) + ".png x=" + tt.x + " y=" + tt.y + " w=" + tt.w + " h=" + tt.h + "\r\n";
+  }
+  var manU8 = enc.encode(man);
+  var manName = enc.encode("manifest.txt");
+  var manCrc = crc32(manU8);
+  var mlh = new Uint8Array(30 + manName.length);
+  var mdv = new DataView(mlh.buffer);
+  makeLocalHeader(mdv, manName, manCrc, manU8.length);
+  mlh.set(manName, 30);
+  parts.push(mlh); parts.push(manU8);
+  entries.push({ nameBytes: manName, crc: manCrc, size: manU8.length, offset: offset });
+  offset += mlh.length + manU8.length;
+
+  var cdStart = offset, cdSize = 0;
+  for (var j = 0; j < entries.length; j++) {
+    var e = entries[j];
+    var ce = new Uint8Array(46 + e.nameBytes.length);
+    var dv2 = new DataView(ce.buffer);
+    makeCentralEntry(dv2, e.nameBytes, e.crc, e.size, e.offset);
+    ce.set(e.nameBytes, 46);
+    parts.push(ce);
+    cdSize += ce.length;
+  }
+
+  var eocd = new Uint8Array(22);
+  var dv3 = new DataView(eocd.buffer);
+  dv3.setUint32(0, 0x06054b50, true);
+  dv3.setUint16(8, entries.length, true);
+  dv3.setUint16(10, entries.length, true);
+  dv3.setUint32(12, cdSize, true);
+  dv3.setUint32(16, cdStart, true);
+  parts.push(eocd);
+
+  return new Blob(parts, { type: "application/zip" });
+}
+
+async function readZipIndex(file){
+  setAsmProgress("Чтение оглавления архива…", 1);
+  await frame();
+  var TAIL = Math.min(file.size, 65536);
+  var tailBuf = await file.slice(file.size - TAIL).arrayBuffer();
+  var u8 = new Uint8Array(tailBuf);
+  var dv = new DataView(tailBuf);
+  var idx = -1;
+  for (var i = u8.length - 22; i >= 0; i--) {
+    if (u8[i] === 0x50 && u8[i + 1] === 0x4b && u8[i + 2] === 0x05 && u8[i + 3] === 0x06) { idx = i; break; }
+  }
+  if (idx < 0) throw new Error("Это не ZIP-архив или он повреждён");
+  var count = dv.getUint16(idx + 10, true);
+  var cdSize = dv.getUint32(idx + 12, true);
+  var cdOff = dv.getUint32(idx + 16, true);
+  if (cdSize === 0xFFFFFFFF || count === 0xFFFF) throw new Error("ZIP64-архивы не поддерживаются");
+
+  var cdStartRel = file.size - TAIL;
+  var cdBuf;
+  if (cdOff >= cdStartRel && cdOff + cdSize <= file.size) {
+    cdBuf = tailBuf.slice(cdOff - cdStartRel, cdOff - cdStartRel + cdSize);
+  } else {
+    cdBuf = await file.slice(cdOff, cdOff + cdSize).arrayBuffer();
+  }
+
+  var cdu8 = new Uint8Array(cdBuf);
+  var cdv = new DataView(cdBuf);
+  var entries = {};
+  var p = 0;
+  for (var e = 0; e < count; e++) {
+    if (p + 46 > cdBuf.byteLength || cdv.getUint32(p, true) !== 0x02014b50) break;
+    var method = cdv.getUint16(p + 10, true);
+    var compSize = cdv.getUint32(p + 20, true);
+    var nLen = cdv.getUint16(p + 28, true);
+    var xLen = cdv.getUint16(p + 30, true);
+    var cLen = cdv.getUint16(p + 32, true);
+    var localOff = cdv.getUint32(p + 42, true);
+    var name = new TextDecoder().decode(cdu8.subarray(p + 46, p + 46 + nLen));
+    entries[name] = { method: method, compSize: compSize, localOff: localOff };
+    p += 46 + nLen + xLen + cLen;
+  }
+  return entries;
+}
+
+async function zipEntryBytes(file, entries, name){
+  var e = entries[name];
+  if (!e) return null;
+  var lhBuf = await file.slice(e.localOff, e.localOff + 30).arrayBuffer();
+  var ldv = new DataView(lhBuf);
+  if (ldv.getUint32(0, true) !== 0x04034b50) throw new Error("Повреждён фрагмент " + name);
+  var nLen = ldv.getUint16(26, true);
+  var xLen = ldv.getUint16(28, true);
+  var dataStart = e.localOff + 30 + nLen + xLen;
+  var raw = await file.slice(dataStart, dataStart + e.compSize).arrayBuffer();
+  if (e.method === 0) return new Uint8Array(raw);
+  if (e.method === 8 && typeof DecompressionStream !== "undefined") {
+    var stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  throw new Error("Фрагмент в архиве сжат методом, который браузер не поддерживает");
+}
+
+function parseManifest(text){
+  var meta = { result: null, tiles: [] };
+  text.split(/\r?\n/).forEach(function(l){
+    var m = l.match(/result:\s*(\d+)x(\d+)/);
+    if (m) meta.result = [+m[1], +m[2]];
+    var t = l.match(/^(\S+\.png)\s+x=(\d+)\s+y=(\d+)\s+w=(\d+)\s+h=(\d+)/);
+    if (t) meta.tiles.push({ name: t[1], x: +t[2], y: +t[3], w: +t[4], h: +t[5] });
+  });
+  return meta;
+}
+
+var PNG_SIG = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+
+function makeChunk(type, data){
+  var out = new Uint8Array(12 + data.length);
+  var dv = new DataView(out.buffer);
+  dv.setUint32(0, data.length);
+  out[4] = type.charCodeAt(0); out[5] = type.charCodeAt(1);
+  out[6] = type.charCodeAt(2); out[7] = type.charCodeAt(3);
+  out.set(data, 8);
+  var c = 0xFFFFFFFF;
+  c = crc32Update(c, out.subarray(4, 8));
+  c = crc32Update(c, data);
+  dv.setUint32(8 + data.length, (c ^ 0xFFFFFFFF) >>> 0);
+  return out;
+}
+
+function createPngEncoder(outW, outH){
+  var parts = [PNG_SIG];
+
+  var ihdr = new Uint8Array(13);
+  var idv = new DataView(ihdr.buffer);
+  idv.setUint32(0, outW);
+  idv.setUint32(4, outH);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  parts.push(makeChunk("IHDR", ihdr));
+
+  var block = new Uint8Array(65535);
+  var fill = 0;
+  var firstIdat = true;
+  var adler = { a: 1, b: 0 };
+
+  function adlerUpdate(u8){
+    var NMAX = 5552;
+    var a = adler.a, b = adler.b;
+    var i = 0, n = u8.length;
+    while (n > 0) {
+      var k = n > NMAX ? NMAX : n;
+      n -= k;
+      while (k-- > 0) {
+        a += u8[i++];
+        b += a;
+      }
+      a %= 65521; b %= 65521;
+    }
+    adler.a = a; adler.b = b;
+  }
+
+  function flushBlock(last){
+    var hdr = new Uint8Array(5);
+    hdr[0] = last ? 1 : 0;
+    hdr[1] = fill & 0xFF;
+    hdr[2] = (fill >> 8) & 0xFF;
+    var nlen = (~fill) & 0xFFFF;
+    hdr[3] = nlen & 0xFF;
+    hdr[4] = (nlen >> 8) & 0xFF;
+    var data = block.subarray(0, fill).slice();
+    var payload;
+    if (firstIdat) {
+      payload = new Uint8Array(2 + 5 + data.length);
+      payload[0] = 0x78; payload[1] = 0x01;
+      payload.set(hdr, 2);
+      payload.set(data, 7);
+      parts.push(makeChunk("IDAT", payload));
+      firstIdat = false;
+    } else {
+      payload = new Uint8Array(5 + data.length);
+      payload.set(hdr, 0);
+      payload.set(data, 5);
+      parts.push(makeChunk("IDAT", payload));
+    }
+    fill = 0;
+  }
+
+  function feed(rawBytes){
+    var off = 0;
+    while (off < rawBytes.length) {
+      var take = Math.min(65535 - fill, rawBytes.length - off);
+      block.set(rawBytes.subarray(off, off + take), fill);
+      fill += take; off += take;
+      if (fill === 65535) flushBlock(false);
+    }
+    adlerUpdate(rawBytes);
+  }
+
+  function finish(){
+    if (fill === 0 && !firstIdat) {
+      fill = 0;
+    }
+    flushBlock(true);
+    var ad = new Uint8Array(4);
+    new DataView(ad.buffer).setUint32(0, ((adler.b << 16) | adler.a) >>> 0);
+    parts.push(makeChunk("IDAT", ad));
+    parts.push(makeChunk("IEND", new Uint8Array(0)));
+    return new Blob(parts, { type: "image/png" });
+  }
+
+  return { feed: feed, finish: finish };
+}
+
+async function decodePngBytes(u8){
+  try {
+    return await createImageBitmap(new Blob([u8], { type: "image/png" }));
+  } catch (e) {
+    return await new Promise(function(resolve, reject){
+      var url = URL.createObjectURL(new Blob([u8], { type: "image/png" }));
+      var im = new Image();
+      im.onload = function(){ URL.revokeObjectURL(url); resolve(im); };
+      im.onerror = function(){ URL.revokeObjectURL(url); reject(new Error("Не удалось декодировать фрагмент")); };
+      im.src = url;
+    });
+  }
+}
+
+var BAND_ROWS = 512;
+
+async function assembleZip(file){
+  if (asmBusy || state.busy) return;
+  asmBusy = true;
+  asmCancel = false;
+  asmOverlay.classList.add("show");
+  asmHeavy.classList.remove("show");
+  asmSize.textContent = fmtBytes(file.size);
+  asmTime.textContent = "0 с";
+  var t0 = Date.now();
+  var timeTimer = setInterval(function(){
+    asmTime.textContent = fmtSec((Date.now() - t0) / 1000);
+  }, 1000);
+  try {
+    var entries = await readZipIndex(file);
+
+    setAsmProgress("Чтение манифеста…", 2);
+    await frame();
+    var manBytes = await zipEntryBytes(file, entries, "manifest.txt");
+    if (!manBytes) throw new Error("В архиве нет manifest.txt — это не архив Kizamia Upscale Image");
+    var man = parseManifest(new TextDecoder().decode(manBytes));
+    if (!man.tiles.length) throw new Error("В манифесте нет фрагментов");
+
+    var outW, outH;
+    if (man.result) {
+      outW = man.result[0]; outH = man.result[1];
+    } else {
+      outW = 0; outH = 0;
+      man.tiles.forEach(function(t){
+        outW = Math.max(outW, t.x + t.w);
+        outH = Math.max(outH, t.y + t.h);
+      });
+    }
+
+    var estKnown = true, estSum = 0;
+    for (var ei = 0; ei < man.tiles.length; ei++) {
+      var ee = entries[man.tiles[ei].name];
+      if (!ee) { estKnown = false; break; }
+      estSum += ee.compSize;
+    }
+    if (estKnown) estSum = Math.round(estSum * 1.02) + 1024;
+    else estSum = estimatePngBytes(outW, outH);
+
+    if (estSum > HEAVY) {
+      setAsmProgress("Ожидание подтверждения…", 2);
+      await frame();
+      var ok = await askHeavyWarning(estSum, "сборка изображения из архива", !estKnown);
+      if (!ok) return;
+      asmHeavy.classList.add("show");
+    }
+
+    setAsmProgress("Подготовка кодировщика…", 2);
+    await frame();
+
+    var enc = createPngEncoder(outW, outH);
+    var rowBytes = outW * 4 + 1;
+
+    var tiles = man.tiles.slice().sort(function(a, b){ return a.y - b.y; });
+
+    var cache = new Map();
+    var decodedCount = 0;
+    var totalTiles = tiles.length;
+
+    async function ensureBitmap(name){
+      if (cache.has(name)) return cache.get(name);
+      if (asmCancel) throw new Error("cancelled");
+      setAsmProgress("Чтение фрагмента " + (decodedCount + 1) + " из " + totalTiles + "…", 2 + (decodedCount / totalTiles) * 15);
+      await frame();
+      var u8 = await zipEntryBytes(file, entries, name);
+      if (!u8) throw new Error("В архиве нет фрагмента " + name);
+      var bm = await decodePngBytes(u8);
+      cache.set(name, bm);
+      decodedCount++;
+      return bm;
+    }
+
+    var scratch = null;
+
+    for (var by = 0; by < outH; by += BAND_ROWS) {
+      if (asmCancel) throw new Error("cancelled");
+      var bh = Math.min(BAND_ROWS, outH - by);
+      var band = new Uint8Array(rowBytes * bh);
+
+      for (var i = 0; i < tiles.length; i++) {
+        var t = tiles[i];
+        if (t.y >= by + bh || t.y + t.h <= by) continue;
+        if (t.x >= outW) continue;
+
+        var bm = await ensureBitmap(t.name);
+
+        var y0 = Math.max(t.y, by);
+        var y1 = Math.min(t.y + t.h, by + bh);
+        var x0 = Math.max(t.x, 0);
+        var x1 = Math.min(t.x + t.w, outW);
+        var sw = x1 - x0, sh = y1 - y0;
+        if (sw <= 0 || sh <= 0) continue;
+
+        if (!scratch || scratch.width < sw || scratch.height < sh) {
+          scratch = makeCanvas(Math.max(sw, scratch ? scratch.width : 0), Math.max(sh, scratch ? scratch.height : 0));
+        }
+        var sctx = scratch.getContext("2d", { willReadFrequently: true });
+        sctx.clearRect(0, 0, scratch.width, scratch.height);
+        sctx.drawImage(bm, x0 - t.x, y0 - t.y, sw, sh, 0, 0, sw, sh);
+        var srcData = sctx.getImageData(0, 0, sw, sh).data;
+
+        for (var r = 0; r < sh; r++) {
+          var dy = y0 + r - by;
+          var dstOff = dy * rowBytes + 1 + x0 * 4;
+          band.set(srcData.subarray(r * sw * 4, (r + 1) * sw * 4), dstOff);
+        }
+      }
+
+      enc.feed(band);
+
+      cache.forEach(function(bm, name){
+        var tt = null;
+        for (var q = 0; q < tiles.length; q++) if (tiles[q].name === name) { tt = tiles[q]; break; }
+        if (tt && tt.y + tt.h <= by + bh) {
+          if (bm.close) bm.close();
+          cache.delete(name);
+        }
+      });
+
+      setAsmProgress("Кодирование PNG… строки " + fmtNum(Math.min(by + bh, outH)) + " из " + fmtNum(outH), 18 + ((by + bh) / outH) * 80);
+      await frame();
+    }
+
+    setAsmProgress("Завершение PNG…", 99);
+    await frame();
+    var blob = enc.finish();
+
+    var base = (file.name || "assembled").replace(/\.zip$/i, "").replace(/_upscale$/i, "");
+    triggerDownload(blob, base + "_assembled.png");
+    toast("Готово: собран файл " + base + "_assembled.png (" + fmtBytes(blob.size) + ")");
+  } catch (err) {
+    if (err.message === "cancelled") {
+      toast("Сборка отменена", "warn");
+    } else {
+      toast("Ошибка сборки: " + (err.message || "неизвестная"), "err");
+    }
+  } finally {
+    clearInterval(timeTimer);
+    asmBusy = false;
+    asmOverlay.classList.remove("show");
+    asmHeavy.classList.remove("show");
+  }
+}
+
+$("#asmCancelBtn").addEventListener("click", function(){
+  if (asmBusy) asmCancel = true;
+});
+
+function triggerDownload(blob, filename){
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.showKizamiaThanks && setTimeout(window.showKizamiaThanks, 1000);
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 8000);
+}
+
+downloadBtn.addEventListener("click", function(){
+  if (!state.outCanvas || state.busy) return;
+
+  if (!state.tiledMode) {
+    var type = formatSelect.value === "jpeg" ? "image/jpeg" : "image/png";
+    var ext = formatSelect.value === "jpeg" ? "jpg" : "png";
+    var scale = scaleValue();
+    var label = "×" + (+scale.toFixed(2)).toString().replace(".", "_");
+    try {
+      state.outCanvas.toBlob(function(blob){
+        if (!blob) { toast("Не удалось создать файл. Попробуйте меньший масштаб.", "err"); return; }
+        triggerDownload(blob, state.name + "_" + label + "." + ext);
+        toast("Файл сохранён");
+      }, type, parseInt(qInput.value, 10) / 100);
+    } catch (e) {
+      toast("Не удалось закодировать изображение такого размера", "err");
+    }
+    return;
+  }
+
+  state.busy = true;
+  overlay.classList.add("show");
+  heavyHint.classList.add("show");
+  setProgress("Сборка ZIP…", 0);
+  buildZipArchive().then(function(zip){
+    setProgress("Готово", 100);
+    triggerDownload(zip, (state.name || "image") + "_upscale.zip");
+    toast("Архив сохранён: " + fmtNum(state.tiles.length) + " фрагментов PNG + манифест");
+  }).catch(function(err){
+    toast("Ошибка сборки архива: " + (err.message || "неизвестная"), "err");
+  }).finally(function(){
+    state.busy = false;
+    overlay.classList.remove("show");
+    heavyHint.classList.remove("show");
+  });
+});
+
+$("#newBtn").addEventListener("click", function(){
+  editor.hidden = true;
+  dropzone.hidden = false;
+  if (state.objUrl) { URL.revokeObjectURL(state.objUrl); state.objUrl = null; }
+  state.srcCanvas = null;
+  state.outCanvas = null;
+  state.tiles = null;
+  state.tiledMode = false;
+  fileInput.value = "";
+});
+
+dropzone.addEventListener("click", function(){ fileInput.click(); });
+$("#zipBtn").addEventListener("click", function(e){ e.stopPropagation(); zipInput.click(); });
+fileInput.addEventListener("change", function(){ loadFile(fileInput.files[0]); });
+zipInput.addEventListener("change", function(){
+  var f = zipInput.files[0];
+  zipInput.value = "";
+  if (f) assembleZip(f);
+});
+
+var dragDepth = 0;
+["dragenter", "dragover"].forEach(function(ev){
+  window.addEventListener(ev, function(e){
+    e.preventDefault();
+    if (ev === "dragenter") dragDepth++;
+    dropzone.classList.add("drag");
+    if (!editor.hidden) e.dataTransfer.dropEffect = "copy";
+  });
+});
+["dragleave"].forEach(function(ev){
+  window.addEventListener(ev, function(){
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dropzone.classList.remove("drag");
+  });
+});
+window.addEventListener("drop", function(e){
+  e.preventDefault();
+  dragDepth = 0;
+  dropzone.classList.remove("drag");
+  var f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!f) return;
+  if (/\.zip$/i.test(f.name) || f.type === "application/zip") {
+    assembleZip(f);
+  } else {
+    loadFile(f);
+  }
+});
+
+document.addEventListener("paste", function(e){
+  var items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf("image") === 0) {
+      loadFile(items[i].getAsFile());
+      return;
+    }
+  }
+});
+
+applySplit();
+})();
+</script>
+<!-- ==== Окно поддержки (Robokassa) ==== -->
+<div id="kz-overlay">
+  <div id="kz-dialog">
+    <button id="kz-x" aria-label="Закрыть">&times;</button>
+    <h3>Спасибо, что пользуетесь «Kizamia Upscale Image»!</h3>
+    <p class="kz-desc">Сервис работает без рекламы и полностью на устройстве. Если проект оказался полезен, вы можете поддержать его развитие любой суммой.</p>
+
+    <div id="kz-choose">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+        <button class="kz-pay" data-sum="100">100 ₽</button>
+        <button class="kz-pay" data-sum="300">300 ₽</button>
+        <button class="kz-pay" data-sum="500">500 ₽</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="kz-sec" id="kz-other" style="flex:1;">Другая сумма</button>
+        <input id="kz-amount" type="number" min="10" step="1" placeholder="Сумма, ₽" style="display:none;">
+        <button class="kz-sec" id="kz-pay-custom" style="display:none;">Поддержать</button>
+      </div>
+      <button id="kz-later">Не сейчас</button>
+    </div>
+
+    <div id="kz-form" style="display:none;">
+      <div id="kz-widget-slot" style="font-size:14px;line-height:1.6;"></div>
+      <button id="kz-back" style="margin-top:12px;">Назад</button>
+    </div>
+
+    <label id="kz-hide-row">
+      <input type="checkbox" id="kz-hide" checked>
+      Не показывать это окно снова в течение 1 дней
+    </label>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ==== Настройки Robokassa: заполните после регистрации ==== */
+var MERCHANT_LOGIN = 'ЗАПОЛНИТЬ_MERCHANT_LOGIN';
+var PASSWORD1      = 'ЗАПОЛНИТЬ_ПАРОЛЬ_1';
+
+/* Встроенный MD5 (реализация Joseph Myers, public domain) — сайт остаётся офлайн */
+function md5cycle(x,k){var a=x[0],b=x[1],c=x[2],d=x[3];a=ff(a,b,c,d,k[0],7,-680876936);d=ff(d,a,b,c,k[1],12,-389564586);c=ff(c,d,a,b,k[2],17,602894887);b=ff(b,c,d,a,k[3],22,-1044525330);a=ff(a,b,c,d,k[4],7,-176418897);d=ff(d,a,b,c,k[5],12,1200080426);c=ff(c,d,a,b,k[6],17,-1473231341);b=ff(b,c,d,a,k[7],22,-45705983);a=ff(a,b,c,d,k[8],7,1770035416);d=ff(d,a,b,c,k[9],12,-1958414417);c=ff(c,d,a,b,k[10],17,-42063);b=ff(b,c,d,a,k[11],22,-1990404162);a=ff(a,b,c,d,k[12],7,1804603682);d=ff(d,a,b,c,k[13],12,-40341101);c=ff(c,d,a,b,k[14],17,-1502002290);b=ff(b,c,d,a,k[15],22,1236535329);a=gg(a,b,c,d,k[1],5,-165796510);d=gg(d,a,b,c,k[6],9,-1069501632);c=gg(c,d,a,b,k[11],14,643717713);b=gg(b,c,d,a,k[0],20,-373897302);a=gg(a,b,c,d,k[5],5,-701558691);d=gg(d,a,b,c,k[10],9,38016083);c=gg(c,d,a,b,k[15],14,-660478335);b=gg(b,c,d,a,k[4],20,-405537848);a=gg(a,b,c,d,k[9],5,568446438);d=gg(d,a,b,c,k[14],9,-1019803690);c=gg(c,d,a,b,k[3],14,-187363961);b=gg(b,c,d,a,k[8],20,1163531501);a=gg(a,b,c,d,k[13],5,-1444681467);d=gg(d,a,b,c,k[2],9,-51403784);c=gg(c,d,a,b,k[7],14,1735328473);b=gg(b,c,d,a,k[12],20,-1926607734);a=hh(a,b,c,d,k[5],4,-378558);d=hh(d,a,b,c,k[8],11,-2022574463);c=hh(c,d,a,b,k[11],16,1839030562);b=hh(b,c,d,a,k[14],23,-35309556);a=hh(a,b,c,d,k[1],4,-1530992060);d=hh(d,a,b,c,k[4],11,1272893353);c=hh(c,d,a,b,k[7],16,-155497632);b=hh(b,c,d,a,k[10],23,-1094730640);a=hh(a,b,c,d,k[13],4,681279174);d=hh(d,a,b,c,k[0],11,-358537222);c=hh(c,d,a,b,k[3],16,-722521979);b=hh(b,c,d,a,k[6],23,76029189);a=hh(a,b,c,d,k[9],4,-640364487);d=hh(d,a,b,c,k[12],11,-421815835);c=hh(c,d,a,b,k[15],16,530742520);b=hh(b,c,d,a,k[2],23,-995338651);a=ii(a,b,c,d,k[0],6,-198630844);d=ii(d,a,b,c,k[7],10,1126891415);c=ii(c,d,a,b,k[14],15,-1416354905);b=ii(b,c,d,a,k[5],21,-57434055);a=ii(a,b,c,d,k[12],6,1700485571);d=ii(d,a,b,c,k[3],10,-1894986606);c=ii(c,d,a,b,k[10],15,-1051523);b=ii(b,c,d,a,k[1],21,-2054922799);a=ii(a,b,c,d,k[8],6,1873313359);d=ii(d,a,b,c,k[15],10,-30611744);c=ii(c,d,a,b,k[6],15,-1560198380);b=ii(b,c,d,a,k[13],21,1309151649);a=ii(a,b,c,d,k[4],6,-145523070);d=ii(d,a,b,c,k[11],10,-1120210379);c=ii(c,d,a,b,k[2],15,718787259);b=ii(b,c,d,a,k[9],21,-343485551);x[0]=add32(a,x[0]);x[1]=add32(b,x[1]);x[2]=add32(c,x[2]);x[3]=add32(d,x[3]);}
+function cmn(q,a,b,x,s,t){a=add32(add32(a,q),add32(x,t));return add32((a<<s)|(a>>>(32-s)),b);}
+function ff(a,b,c,d,x,s,t){return cmn((b&c)|(~b&d),a,b,x,s,t);}
+function gg(a,b,c,d,x,s,t){return cmn((b&d)|(c&~d),a,b,x,s,t);}
+function hh(a,b,c,d,x,s,t){return cmn(b^c^d,a,b,x,s,t);}
+function ii(a,b,c,d,x,s,t){return cmn(c^(b|~d),a,b,x,s,t);}
+function md51(s){var n=s.length,state=[1732584193,-271733879,-1732584194,271733878],i;for(i=64;i<=s.length;i+=64){md5cycle(state,md5blk(s.substring(i-64,i)));}s=s.substring(i-64);var tail=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];for(i=0;i<s.length;i++)tail[i>>2]|=s.charCodeAt(i)<<((i%4)<<3);tail[i>>2]|=0x80<<((i%4)<<3);if(i>55){md5cycle(state,tail);for(i=0;i<16;i++)tail[i]=0;}tail[14]=n*8;md5cycle(state,tail);return state;}
+function md5blk(s){var md5blks=[],i;for(i=0;i<64;i+=4){md5blks[i>>2]=s.charCodeAt(i)+(s.charCodeAt(i+1)<<8)+(s.charCodeAt(i+2)<<16)+(s.charCodeAt(i+3)<<24);}return md5blks;}
+var hex_chr='0123456789abcdef'.split('');
+function rhex(n){var s='',j=0;for(;j<4;j++)s+=hex_chr[(n>>(j*8+4))&0x0F]+hex_chr[(n>>(j*8))&0x0F];return s;}
+function md5hex(x){for(var i=0;i<x.length;i++)x[i]=rhex(x[i]);return x.join('');}
+function add32(a,b){return (a+b)&0xFFFFFFFF;}
+
+/* ==== Логика окна ==== */
+var KEY='kz_donate_hide_until_1d', DAY=24*60*60*1000;
+var overlay=document.getElementById('kz-overlay');
+var choose=document.getElementById('kz-choose');
+var formB=document.getElementById('kz-form');
+var slot=document.getElementById('kz-widget-slot');
+var hideBox=document.getElementById('kz-hide');
+
+function isHidden(){try{var v=localStorage.getItem(KEY);return v&&Date.now()<Number(v);}catch(e){return false;}}
+function openModal(){
+  if(isHidden())return;
+  overlay.style.display='flex';
+  choose.style.display='block';
+  formB.style.display='none';
+}
+function closeModal(saveHide){
+  overlay.style.display='none';
+  if(saveHide&&hideBox.checked){try{localStorage.setItem(KEY,String(Date.now()+DAY));}catch(e){}}
+}
+function showChoose(){choose.style.display='block';formB.style.display='none';}
+
+function pay(sum){
+  if(MERCHANT_LOGIN.indexOf('ЗАПОЛНИТЬ')>=0||PASSWORD1.indexOf('ЗАПОЛНИТЬ')>=0){
+    slot.innerHTML='<p style="color:var(--warn);">Приём платежей ещё не настроен: заполните MERCHANT_LOGIN и PASSWORD1 в коде страницы.</p>';
+  }else{
+    var invId=Date.now();
+    var outSum=sum.toFixed(2);
+    var sig=md5hex(md51(MERCHANT_LOGIN+':'+outSum+':'+invId+':'+PASSWORD1));
+    var url='https://auth.robokassa.ru/Merchant/Index.aspx'
+      +'?MerchantLogin='+encodeURIComponent(MERCHANT_LOGIN)
+      +'&OutSum='+outSum
+      +'&InvId='+invId
+      +'&Description='+encodeURIComponent('Добровольная поддержка разработки сервиса Kizamia Upscale Image')
+      +'&SignatureValue='+sig
+      +'&Culture=ru';
+    slot.innerHTML='<p style="color:var(--muted);">Открываем страницу оплаты… Если она не открылась, <a href="'+url+'" target="_blank" rel="noopener" style="color:var(--accent);">нажмите здесь</a>.</p>';
+    window.open(url,'_blank');
+  }
+  choose.style.display='none';
+  formB.style.display='block';
+}
+
+document.getElementById('kz-x').onclick=function(){closeModal(true);};
+document.getElementById('kz-later').onclick=function(){closeModal(true);};
+document.getElementById('kz-back').onclick=showChoose;
+
+document.querySelectorAll('.kz-pay').forEach(function(b){
+  b.onclick=function(){pay(parseFloat(b.dataset.sum));};
+});
+document.getElementById('kz-other').onclick=function(){
+  this.style.display='none';
+  document.getElementById('kz-amount').style.display='block';
+  document.getElementById('kz-pay-custom').style.display='block';
+  document.getElementById('kz-amount').focus();
+};
+document.getElementById('kz-pay-custom').onclick=function(){
+  var v=parseFloat(document.getElementById('kz-amount').value);
+  if(v>=10)pay(v);
+};
+
+window.showKizamiaThanks=openModal;
+})();
+</script>
+
+</body>
+</html>
